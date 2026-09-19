@@ -161,3 +161,96 @@ La consulta de conexion ejecutada desde Laravel devolvio `3` pacientes. El coman
 ## Estado final de la verificacion
 
 RQNF-01 y RQNF-02 verificados. Los resultados documentados fueron obtenidos contra el contenedor real y no contienen contrasenas.
+
+## API REST - feature/api-rest-citas
+
+Fecha de verificacion: `2026-09-19`
+
+La API fue probada mediante HTTP contra Laravel local en `127.0.0.1:8001` y MySQL 8.4 en Docker.
+
+### Rutas registradas
+
+```text
+GET    /api/pacientes
+GET    /api/doctores
+GET    /api/citas
+POST   /api/citas
+GET    /api/citas/{cita}
+PUT    /api/citas/{cita}
+PATCH  /api/citas/{cita}/estado
+```
+
+### Resultados HTTP
+
+```text
+GET /api/pacientes              200  registros: 3
+GET /api/doctores               200  registros: 3
+GET /api/citas                  200  registros iniciales: 3
+POST /api/citas                 201  id: 4, estado: pendiente
+GET /api/citas/4                200  paciente y doctor incluidos
+PUT /api/citas/4                200  motivo y horario actualizados
+PATCH /api/citas/4/estado       200  estado: cancelada
+POST /api/citas con datos malos 422  sin insercion
+GET /api/citas/999999           404  respuesta JSON
+```
+
+### Filtros
+
+```text
+GET /api/citas?doctor_id=2                         200  registros: 2
+GET /api/citas?paciente_id=1                       200  registros: 2
+GET /api/citas?estado=cancelada                     200  registros: 1
+GET /api/citas?desde=2026-09-20&hasta=2026-09-30   200  registros: 1
+```
+
+El rango incluye citas cuyo horario se solapa con las fechas solicitadas. No se implemento deteccion de doble reserva.
+
+### Persistencia en MySQL
+
+Consulta ejecutada despues de POST, PUT y PATCH:
+
+```sql
+SELECT
+    id,
+    paciente_id,
+    doctor_id,
+    fecha_hora_inicio,
+    fecha_hora_fin,
+    motivo,
+    estado
+FROM citas
+WHERE id = 4;
+```
+
+Resultado:
+
+```text
+id: 4
+paciente_id: 1
+doctor_id: 2
+fecha_hora_inicio: 2026-09-25 11:00:00
+fecha_hora_fin: 2026-09-25 11:45:00
+motivo: Consulta API actualizada
+estado: cancelada
+total_citas: 4
+```
+
+El registro sigue existiendo despues de cancelarlo. La peticion invalida no incremento el total.
+
+### Pruebas automatizadas
+
+Comando:
+
+```powershell
+php artisan test
+```
+
+Resultado:
+
+```text
+11 pruebas aprobadas
+62 aserciones
+0 fallos
+```
+
+Las pruebas cubren referencias, listado, detalle, creacion, actualizacion, cambio de estado, validacion, filtros y 404 JSON.
